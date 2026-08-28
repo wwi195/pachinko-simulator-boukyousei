@@ -27,10 +27,12 @@ function spinNormal() {
 
 // balls=表示出玉（画面表示用）、actual=実質獲得出玉（収支計上用、表示出玉の14/15）。
 // この14/15という比率は ghoul/ghouldeka/lycoris の実質出玉と同じ換算率を踏襲している。
+// weight=実装上のスピン判定に使う正規化済み確率（図柄揃い内で合計100%）。
+// displayPercent=実機公表値そのもの（初当たり全体1/399.8に対する割合、画面表示用）。
 const ZUGAR_TYPES = {
-  rushBig:   { weight: 5 / 96,  balls: 4500, actual: 4200, entersRush: true },
-  rushSmall: { weight: 52 / 96, balls: 1500, actual: 1400, entersRush: true },
-  normal:    { weight: 39 / 96, balls: 1500, actual: 1400, entersRush: false },
+  rushBig:   { weight: 5 / 96,  balls: 4500, actual: 4200, entersRush: true,  displayPercent: 5 },
+  rushSmall: { weight: 52 / 96, balls: 1500, actual: 1400, entersRush: true,  displayPercent: 52 },
+  normal:    { weight: 39 / 96, balls: 1500, actual: 1400, entersRush: false, displayPercent: 39 },
 };
 const ZUGAR_TYPE_ORDER = ['rushBig', 'rushSmall', 'normal'];
 
@@ -53,6 +55,8 @@ const CHARGE_BALLS_PLAIN = 300;
 const CHARGE_ACTUAL_PLAIN = 280;
 const CHARGE_BALLS_UPGRADED = 1800;
 const CHARGE_ACTUAL_UPGRADED = 1680;
+// チャージ昇格（2R+10R）の実機公表値：初当たり全体(1/399.8)に対する割合
+const CHARGE_UPGRADE_DISPLAY_PERCENT = 4;
 
 // ---- 拳王RUSH ----
 // 1サイクル = 電サポ10回転 + 残保留4個 = 実質14回のチャンス。
@@ -157,6 +161,7 @@ if (typeof module !== 'undefined' && module.exports) {
     CHARGE_ACTUAL_PLAIN,
     CHARGE_BALLS_UPGRADED,
     CHARGE_ACTUAL_UPGRADED,
+    CHARGE_UPGRADE_DISPLAY_PERCENT,
     P_RUSH_CHANCE,
     RUSH_ST_COUNT,
     RUSH_RESERVE_COUNT,

@@ -39,11 +39,11 @@ test('spinNormal returns zugar/charge/miss by cumulative threshold', () => {
   assert.equal(withMockRandom([0.5], () => logic.spinNormal()), 'miss');
 });
 
-test('ZUGAR_TYPES lists the 3 zugar outcomes with correct weight/balls/actual/entersRush', () => {
+test('ZUGAR_TYPES lists the 3 zugar outcomes with correct weight/balls/actual/entersRush/displayPercent', () => {
   assert.deepEqual(logic.ZUGAR_TYPE_ORDER, ['rushBig', 'rushSmall', 'normal']);
-  assert.deepEqual(logic.ZUGAR_TYPES.rushBig,   { weight: 5 / 96,  balls: 4500, actual: 4200, entersRush: true });
-  assert.deepEqual(logic.ZUGAR_TYPES.rushSmall, { weight: 52 / 96, balls: 1500, actual: 1400, entersRush: true });
-  assert.deepEqual(logic.ZUGAR_TYPES.normal,    { weight: 39 / 96, balls: 1500, actual: 1400, entersRush: false });
+  assert.deepEqual(logic.ZUGAR_TYPES.rushBig,   { weight: 5 / 96,  balls: 4500, actual: 4200, entersRush: true,  displayPercent: 5 });
+  assert.deepEqual(logic.ZUGAR_TYPES.rushSmall, { weight: 52 / 96, balls: 1500, actual: 1400, entersRush: true,  displayPercent: 52 });
+  assert.deepEqual(logic.ZUGAR_TYPES.normal,    { weight: 39 / 96, balls: 1500, actual: 1400, entersRush: false, displayPercent: 39 });
 });
 
 test('rollZugarType picks the type whose cumulative range contains the draw', () => {
@@ -63,6 +63,10 @@ test('charge balls/actual constants are the 14/15 表示/実質 pair', () => {
   assert.equal(logic.CHARGE_ACTUAL_PLAIN, 280);
   assert.equal(logic.CHARGE_BALLS_UPGRADED, 1800);
   assert.equal(logic.CHARGE_ACTUAL_UPGRADED, 1680);
+});
+
+test('CHARGE_UPGRADE_DISPLAY_PERCENT is the published 4% share of 1/399.8', () => {
+  assert.equal(logic.CHARGE_UPGRADE_DISPLAY_PERCENT, 4);
 });
 
 test('P_RUSH_CHANCE is 1/10.7, RUSH_ST_COUNT is 10, RUSH_RESERVE_COUNT is 4', () => {

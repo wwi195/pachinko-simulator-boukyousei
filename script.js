@@ -146,6 +146,7 @@ function backToNormal() {
 function runRushSpin() {
   game.allRushStats.rushTotalSpins++;
   game.rushCycleSpins++;
+  const wasReservePhase = game.rush.stRemaining === 0; // 保留消化中の当たりはsmallに固定される（logic.js側）
   const { rushState, outcome, hitType, balls, actual } = applyRushChance(game.rush);
   game.rush = rushState;
 
@@ -163,7 +164,9 @@ function runRushSpin() {
   game.rushHitCounts[hitType]++;
   game.rushSessionHitCounts[hitType]++;
   addBalls(actual); // 収支には実質獲得出玉を計上
-  game.pending = { hitType, balls, spinsThisCycle: game.rushCycleSpins };
+  // 保留消化中は必ずsmallになる（振り分けではなく確定）ため100%表示
+  const hitPercent = wasReservePhase ? 100 : Math.round(RUSH_HIT_TYPES[hitType].weight * 100);
+  game.pending = { hitType, balls, spinsThisCycle: game.rushCycleSpins, hitPercent };
   addLog(hitType === 'none' ? 'STリセット！継続！' : `${balls}個！ ＋${balls}球`, 'rush'); // 表示出玉は今まで通り
   game.rushCycleSpins = 0;
   setState('rush_hit_result');
@@ -392,8 +395,10 @@ function buildScreen(state) {
       const p = game.pending;
       if (p.source === 'zugar') {
         const titleMap = { rushBig: '10R×3', rushSmall: '10R', normal: '10R' };
+        const zugarPercent = ZUGAR_TYPES[p.typeKey].displayPercent;
         return `<div class="screen">
           <p class="result-main win">図柄揃い！</p>
+          <p class="prob-hint">当選確率 1/${(1 / P_TOTAL_HIT).toFixed(1)}の${zugarPercent}%</p>
           <div class="vibun-box ${p.entersRush ? 'rush-box' : 'normal-box'}">
             <p class="bonus-main ${p.entersRush ? 'premium' : 'standard'}">${titleMap[p.typeKey]}</p>
             <p class="bonus-sub">＋${p.balls.toLocaleString()}球獲得</p>
@@ -402,8 +407,12 @@ function buildScreen(state) {
           <button class="btn-action" onclick="handleHitContinue()">▶ ${p.entersRush ? 'RUSHへ' : '通常へ'}</button>
         </div>`;
       }
+      const chargeProbHint = p.upgraded
+        ? `当選確率 1/${(1 / P_TOTAL_HIT).toFixed(1)}の${CHARGE_UPGRADE_DISPLAY_PERCENT}%`
+        : `当選確率 1/${(1 / P_CHARGE).toFixed(1)}`;
       return `<div class="screen">
         <p class="result-main charge">チャージ！</p>
+        <p class="prob-hint">${chargeProbHint}</p>
         <div class="vibun-box charge-box">
           <p class="bonus-main charge">${p.upgraded ? '2R+10R昇格' : 'チャージ'}</p>
           <p class="bonus-sub">＋${p.balls.toLocaleString()}球獲得</p>
@@ -452,6 +461,7 @@ function buildScreen(state) {
         <div class="vibun-box rush-box">
           <p class="bonus-main ${p.hitType === 'none' ? 'none' : 'standard'}">${labelMap[p.hitType]}</p>
           <p class="bonus-sub">＋${p.balls.toLocaleString()}球獲得</p>
+          <p class="prob-hint">振り分け ${p.hitPercent}%</p>
         </div>
         <button class="btn-action" onclick="handleRushHitContinue()">▶ RUSH継続へ</button>
       </div>`;
