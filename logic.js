@@ -25,10 +25,12 @@ function spinNormal() {
   return 'miss';
 }
 
+// balls=表示出玉（画面表示用）、actual=実質獲得出玉（収支計上用、表示出玉の14/15）。
+// この14/15という比率は ghoul/ghouldeka/lycoris の実質出玉と同じ換算率を踏襲している。
 const ZUGAR_TYPES = {
-  rushBig:   { weight: 5 / 96,  balls: 4500, entersRush: true },
-  rushSmall: { weight: 52 / 96, balls: 1500, entersRush: true },
-  normal:    { weight: 39 / 96, balls: 1500, entersRush: false },
+  rushBig:   { weight: 5 / 96,  balls: 4500, actual: 4200, entersRush: true },
+  rushSmall: { weight: 52 / 96, balls: 1500, actual: 1400, entersRush: true },
+  normal:    { weight: 39 / 96, balls: 1500, actual: 1400, entersRush: false },
 };
 const ZUGAR_TYPE_ORDER = ['rushBig', 'rushSmall', 'normal'];
 
@@ -46,6 +48,12 @@ function rollChargeUpgrade() {
   return Math.random() < CHARGE_UPGRADE_RATE;
 }
 
+// チャージの表示出玉／実質獲得出玉（同じく14/15換算）
+const CHARGE_BALLS_PLAIN = 300;
+const CHARGE_ACTUAL_PLAIN = 280;
+const CHARGE_BALLS_UPGRADED = 1800;
+const CHARGE_ACTUAL_UPGRADED = 1680;
+
 // ---- 拳王RUSH ----
 // 1サイクル = 電サポ10回転 + 残保留4個 = 実質14回のチャンス。
 // 最低1回当たればサイクルはヒットしてST/残保留が10/4にフルリセットされ継続する。
@@ -60,10 +68,10 @@ function spinRushChance() {
 }
 
 const RUSH_HIT_TYPES = {
-  big:   { weight: 0.10, balls: 6000 },
-  mid:   { weight: 0.40, balls: 4500 },
-  small: { weight: 0.30, balls: 1500 },
-  none:  { weight: 0.20, balls: 0 },
+  big:   { weight: 0.10, balls: 6000, actual: 5600 },
+  mid:   { weight: 0.40, balls: 4500, actual: 4200 },
+  small: { weight: 0.30, balls: 1500, actual: 1400 },
+  none:  { weight: 0.20, balls: 0,    actual: 0 },
 };
 const RUSH_HIT_TYPE_ORDER = ['big', 'mid', 'small', 'none'];
 
@@ -82,7 +90,7 @@ function createRushState() {
     stRemaining: RUSH_ST_COUNT,
     reserveRemaining: RUSH_RESERVE_COUNT,
     totalHits: 0,
-    actualBalls: 0,
+    actualBalls: 0, // 収支計上用の実質獲得出玉の累計（表示出玉ではない）
   };
 }
 
@@ -92,13 +100,14 @@ function applyRushChance(rushState) {
   if (result === 'hit') {
     const hitType = rollRushHitType();
     const balls = RUSH_HIT_TYPES[hitType].balls;
+    const actual = RUSH_HIT_TYPES[hitType].actual;
     const newState = {
       stRemaining: RUSH_ST_COUNT,
       reserveRemaining: RUSH_RESERVE_COUNT,
       totalHits: rushState.totalHits + 1,
-      actualBalls: rushState.actualBalls + balls,
+      actualBalls: rushState.actualBalls + actual,
     };
-    return { rushState: newState, outcome: 'hit', hitType, balls };
+    return { rushState: newState, outcome: 'hit', hitType, balls, actual };
   }
 
   if (rushState.stRemaining > 0) {
@@ -142,6 +151,10 @@ if (typeof module !== 'undefined' && module.exports) {
     ZUGAR_TYPE_ORDER,
     rollZugarType,
     rollChargeUpgrade,
+    CHARGE_BALLS_PLAIN,
+    CHARGE_ACTUAL_PLAIN,
+    CHARGE_BALLS_UPGRADED,
+    CHARGE_ACTUAL_UPGRADED,
     P_RUSH_CHANCE,
     RUSH_ST_COUNT,
     RUSH_RESERVE_COUNT,

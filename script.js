@@ -18,6 +18,8 @@ const game = {
   totalRushHits: 0,
   rushHitCounts: { big: 0, mid: 0, small: 0, none: 0 },
   rushSessionHitCounts: { big: 0, mid: 0, small: 0, none: 0 },
+  rushEntryBalls: 0, // RUSH突入契機（初当たり）の実質獲得出玉
+  rushCycleSpins: 0, // 直近のRUSH突入/当選から何回転目か
   allRushStats: { rushTotalSpins: 0 },
   rush: null,
   pending: {},
@@ -78,22 +80,23 @@ function runNormalSpin() {
     const typeKey = rollZugarType();
     const info = ZUGAR_TYPES[typeKey];
     game.zugarCounts[typeKey]++;
-    addBalls(info.balls);
+    addBalls(info.actual); // 収支には実質獲得出玉を計上
     game.currentSpins = 0;
     game.lastHitSpins = game.totalSpins;
-    game.pending = { source: 'zugar', typeKey, balls: info.balls, entersRush: info.entersRush };
-    addLog(`図柄揃い！ ＋${info.balls}球`, 'win');
+    game.pending = { source: 'zugar', typeKey, balls: info.balls, actual: info.actual, entersRush: info.entersRush };
+    addLog(`図柄揃い！ ＋${info.balls}球`, 'win'); // 表示出玉は今まで通り
     setState('hit_result');
     return true;
   }
 
   if (result === 'charge') {
     const upgraded = rollChargeUpgrade();
-    const balls = upgraded ? 1800 : 300;
+    const balls  = upgraded ? CHARGE_BALLS_UPGRADED  : CHARGE_BALLS_PLAIN;
+    const actual = upgraded ? CHARGE_ACTUAL_UPGRADED : CHARGE_ACTUAL_PLAIN;
     game.chargeCounts[upgraded ? 'upgraded' : 'plain']++;
-    addBalls(balls);
-    game.pending = { source: 'charge', upgraded, balls, entersRush: upgraded };
-    addLog(`チャージ！ ＋${balls}球${upgraded ? '（2R+10R昇格）' : ''}`, 'charge');
+    addBalls(actual); // 収支には実質獲得出玉を計上
+    game.pending = { source: 'charge', upgraded, balls, actual, entersRush: upgraded };
+    addLog(`チャージ！ ＋${balls}球${upgraded ? '（2R+10R昇格）' : ''}`, 'charge'); // 表示出玉は今まで通り
     setState('hit_result');
     return true;
   }
@@ -120,6 +123,8 @@ function handleHitContinue() {
   if (game.pending.entersRush) {
     game.rush = createRushState();
     game.rushSessionHitCounts = { big: 0, mid: 0, small: 0, none: 0 };
+    game.rushEntryBalls = game.pending.actual; // 初当たりの実質獲得出玉をRUSH側の総獲得出玉に持ち越す
+    game.rushCycleSpins = 0;
     game.mode = 'rush';
     game.rushEntryCount++;
     addLog('拳王RUSH突入！', 'rush');
@@ -136,12 +141,12 @@ function backToNormal() {
 
 // ---- 拳王RUSH中ハンドラ ----
 
-// 1チャンス消化。画面遷移が起きたら true を返す
 // 1チャンス消化。ヒット/RUSH終了など画面遷移が起きたら true を返す。
 // 外れは無演出（ST/残保留が減るだけ）なので画面遷移させず false を返す。
 function runRushSpin() {
   game.allRushStats.rushTotalSpins++;
-  const { rushState, outcome, hitType, balls } = applyRushChance(game.rush);
+  game.rushCycleSpins++;
+  const { rushState, outcome, hitType, balls, actual } = applyRushChance(game.rush);
   game.rush = rushState;
 
   if (outcome === 'miss') {
@@ -157,9 +162,10 @@ function runRushSpin() {
   game.totalRushHits++;
   game.rushHitCounts[hitType]++;
   game.rushSessionHitCounts[hitType]++;
-  addBalls(balls);
-  game.pending = { hitType, balls };
-  addLog(hitType === 'none' ? '当選（出玉なし）継続！' : `${balls}個！ ＋${balls}球`, 'rush');
+  addBalls(actual); // 収支には実質獲得出玉を計上
+  game.pending = { hitType, balls, spinsThisCycle: game.rushCycleSpins };
+  addLog(hitType === 'none' ? 'STリセット！継続！' : `${balls}個！ ＋${balls}球`, 'rush'); // 表示出玉は今まで通り
+  game.rushCycleSpins = 0;
   setState('rush_hit_result');
   return true;
 }
@@ -179,10 +185,19 @@ function handleRushSpin10() {
 
 // applyRushChance（logic.js）は最大 RUSH_ST_COUNT+RUSH_RESERVE_COUNT 回の外れで
 // 必ずhitかrush_endに解決するため、この無限ループは有限回で終了する。
-function handleRushSkip() {
+function runRushUntilTransition() {
   for (;;) {
     if (runRushSpin()) return;
   }
+}
+
+function handleRushSkip() {
+  runRushUntilTransition();
+}
+
+// 保留4回消化ボタン。ST消化後（stRemaining===0）にのみ表示される画面から呼ばれる。
+function handleRushConsumeReserve() {
+  runRushUntilTransition();
 }
 
 function handleRushHitContinue() {
@@ -240,6 +255,8 @@ function resetGame() {
   game.totalRushHits   = 0;
   game.rushHitCounts   = { big: 0, mid: 0, small: 0, none: 0 };
   game.rushSessionHitCounts = { big: 0, mid: 0, small: 0, none: 0 };
+  game.rushEntryBalls  = 0;
+  game.rushCycleSpins  = 0;
   game.allRushStats    = { rushTotalSpins: 0 };
   game.rush            = null;
   game.pending         = {};
@@ -396,10 +413,16 @@ function buildScreen(state) {
       </div>`;
     }
 
-    case 'rush_idle':
-      return `<div class="screen">
+    case 'rush_idle': {
+      const chainCount = game.rush.totalHits + 1; // 初当たり含む連チャン数
+      const totalBalls = game.rushEntryBalls + game.rush.actualBalls; // 初当たり含む総獲得出玉（実質）
+
+      if (game.rush.stRemaining > 0) {
+        return `<div class="screen">
+        <p class="chain-label">${chainCount}連チャン中</p>
         <p class="rush-title">拳王RUSH</p>
-        <p class="rush-sub">ST残り <span>${game.rush.stRemaining}</span> 回／保留<span>${game.rush.reserveRemaining}</span></p>
+        <p class="rush-total-balls">総獲得出玉 ${totalBalls.toLocaleString()}球</p>
+        <p class="rush-sub">ST残り <span>${game.rush.stRemaining}</span> 回</p>
         <div class="rush-spin-btns">
           <button class="btn-rush-spin" onclick="handleRushSpin()">1回転</button>
           <button class="btn-rush-spin" onclick="handleRushSpin10()">10回転</button>
@@ -408,11 +431,24 @@ function buildScreen(state) {
         <p class="prob-hint">当選確率 1/10.7</p>
         <button class="btn-taiten" onclick="handleTaiten()">退店する</button>
       </div>`;
+      }
+
+      return `<div class="screen">
+        <p class="chain-label">${chainCount}連チャン中</p>
+        <p class="rush-title">拳王RUSH</p>
+        <p class="rush-total-balls">総獲得出玉 ${totalBalls.toLocaleString()}球</p>
+        <p class="rush-sub">保留 <span>${game.rush.reserveRemaining}</span></p>
+        <button class="btn-action" onclick="handleRushConsumeReserve()">消化する</button>
+        <p class="prob-hint">当選確率 1/10.7</p>
+        <button class="btn-taiten" onclick="handleTaiten()">退店する</button>
+      </div>`;
+    }
 
     case 'rush_hit_result': {
       const p = game.pending;
-      const labelMap = { big: '6000個', mid: '4500個', small: '1500個', none: '出玉なし' };
+      const labelMap = { big: '6000個', mid: '4500個', small: '1500個', none: 'STリセット！' };
       return `<div class="screen">
+        <p class="result-sub">${p.spinsThisCycle}回転で当選</p>
         <div class="vibun-box rush-box">
           <p class="bonus-main ${p.hitType === 'none' ? 'none' : 'standard'}">${labelMap[p.hitType]}</p>
           <p class="bonus-sub">＋${p.balls.toLocaleString()}球獲得</p>
@@ -423,22 +459,24 @@ function buildScreen(state) {
 
     case 'rush_result': {
       const h = game.rushSessionHitCounts;
+      const chainCount = game.rush.totalHits + 1; // 初当たり含む連チャン数
+      const totalBalls = game.rushEntryBalls + game.rush.actualBalls; // 初当たり含む総獲得出玉（実質）
       const lines = [];
       if (h.big   > 0) lines.push(`<div class="result-row"><span class="rr-label">6000個</span><span class="rr-val">×${h.big}回</span></div>`);
       if (h.mid   > 0) lines.push(`<div class="result-row"><span class="rr-label">4500個</span><span class="rr-val">×${h.mid}回</span></div>`);
       if (h.small > 0) lines.push(`<div class="result-row"><span class="rr-label">1500個</span><span class="rr-val">×${h.small}回</span></div>`);
-      if (h.none  > 0) lines.push(`<div class="result-row"><span class="rr-label">出玉なし</span><span class="rr-val">×${h.none}回</span></div>`);
+      if (h.none  > 0) lines.push(`<div class="result-row"><span class="rr-label">STリセット</span><span class="rr-val">×${h.none}回</span></div>`);
       if (lines.length === 0) lines.push(`<p style="color:#555; font-size:13px;">大当たりなし</p>`);
       return `<div class="screen">
         <p class="rush-result-title">拳王RUSH リザルト</p>
         <div class="rush-result-box">
           <div class="result-row highlight">
-            <span class="rr-label">当たり回数</span>
-            <span class="rr-val gold">${game.rush.totalHits}回</span>
+            <span class="rr-label">連チャン数（初当たり含む）</span>
+            <span class="rr-val gold">${chainCount}連</span>
           </div>
           <div class="result-row">
-            <span class="rr-label">獲得出玉</span>
-            <span class="rr-val gold">${game.rush.actualBalls.toLocaleString()}球</span>
+            <span class="rr-label">獲得出玉（初当たり含む）</span>
+            <span class="rr-val gold">${totalBalls.toLocaleString()}球</span>
           </div>
           <hr class="result-hr">
           <p class="rr-section">ボーナス内訳</p>

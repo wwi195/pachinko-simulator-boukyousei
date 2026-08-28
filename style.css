@@ -250,6 +250,12 @@ body {
   letter-spacing: 1px;
 }
 
+.rush-total-balls {
+  font-size: 15px;
+  font-weight: bold;
+  color: #ff5b4d;
+}
+
 /* 振り分けボックス */
 .vibun-box {
   width: 100%;

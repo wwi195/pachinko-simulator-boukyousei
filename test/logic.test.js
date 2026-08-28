@@ -39,11 +39,11 @@ test('spinNormal returns zugar/charge/miss by cumulative threshold', () => {
   assert.equal(withMockRandom([0.5], () => logic.spinNormal()), 'miss');
 });
 
-test('ZUGAR_TYPES lists the 3 zugar outcomes with correct weight/balls/entersRush', () => {
+test('ZUGAR_TYPES lists the 3 zugar outcomes with correct weight/balls/actual/entersRush', () => {
   assert.deepEqual(logic.ZUGAR_TYPE_ORDER, ['rushBig', 'rushSmall', 'normal']);
-  assert.deepEqual(logic.ZUGAR_TYPES.rushBig,   { weight: 5 / 96,  balls: 4500, entersRush: true });
-  assert.deepEqual(logic.ZUGAR_TYPES.rushSmall, { weight: 52 / 96, balls: 1500, entersRush: true });
-  assert.deepEqual(logic.ZUGAR_TYPES.normal,    { weight: 39 / 96, balls: 1500, entersRush: false });
+  assert.deepEqual(logic.ZUGAR_TYPES.rushBig,   { weight: 5 / 96,  balls: 4500, actual: 4200, entersRush: true });
+  assert.deepEqual(logic.ZUGAR_TYPES.rushSmall, { weight: 52 / 96, balls: 1500, actual: 1400, entersRush: true });
+  assert.deepEqual(logic.ZUGAR_TYPES.normal,    { weight: 39 / 96, balls: 1500, actual: 1400, entersRush: false });
 });
 
 test('rollZugarType picks the type whose cumulative range contains the draw', () => {
@@ -58,6 +58,13 @@ test('rollChargeUpgrade is true under CHARGE_UPGRADE_RATE, false otherwise', () 
   assert.equal(withMockRandom([0.9], () => logic.rollChargeUpgrade()), false);
 });
 
+test('charge balls/actual constants are the 14/15 表示/実質 pair', () => {
+  assert.equal(logic.CHARGE_BALLS_PLAIN, 300);
+  assert.equal(logic.CHARGE_ACTUAL_PLAIN, 280);
+  assert.equal(logic.CHARGE_BALLS_UPGRADED, 1800);
+  assert.equal(logic.CHARGE_ACTUAL_UPGRADED, 1680);
+});
+
 test('P_RUSH_CHANCE is 1/10.7, RUSH_ST_COUNT is 10, RUSH_RESERVE_COUNT is 4', () => {
   assert.equal(logic.P_RUSH_CHANCE, 1 / 10.7);
   assert.equal(logic.RUSH_ST_COUNT, 10);
@@ -69,12 +76,12 @@ test('spinRushChance returns hit when the draw beats P_RUSH_CHANCE, miss otherwi
   assert.equal(withMockRandom([0.5], () => logic.spinRushChance()), 'miss');
 });
 
-test('RUSH_HIT_TYPES lists the 4 outcomes with correct weight/balls', () => {
+test('RUSH_HIT_TYPES lists the 4 outcomes with correct weight/balls/actual', () => {
   assert.deepEqual(logic.RUSH_HIT_TYPE_ORDER, ['big', 'mid', 'small', 'none']);
-  assert.deepEqual(logic.RUSH_HIT_TYPES.big,   { weight: 0.10, balls: 6000 });
-  assert.deepEqual(logic.RUSH_HIT_TYPES.mid,   { weight: 0.40, balls: 4500 });
-  assert.deepEqual(logic.RUSH_HIT_TYPES.small, { weight: 0.30, balls: 1500 });
-  assert.deepEqual(logic.RUSH_HIT_TYPES.none,  { weight: 0.20, balls: 0 });
+  assert.deepEqual(logic.RUSH_HIT_TYPES.big,   { weight: 0.10, balls: 6000, actual: 5600 });
+  assert.deepEqual(logic.RUSH_HIT_TYPES.mid,   { weight: 0.40, balls: 4500, actual: 4200 });
+  assert.deepEqual(logic.RUSH_HIT_TYPES.small, { weight: 0.30, balls: 1500, actual: 1400 });
+  assert.deepEqual(logic.RUSH_HIT_TYPES.none,  { weight: 0.20, balls: 0,    actual: 0 });
 });
 
 test('rollRushHitType picks the type whose cumulative range contains the draw', () => {
@@ -122,25 +129,27 @@ test('applyRushChance: a miss on the very last reserved chance ends the RUSH', (
   assert.equal(rushState.reserveRemaining, 0);
 });
 
-test('applyRushChance: a hit rolls a bonus type, adds balls, and resets the cycle to fresh 10/4', () => {
+test('applyRushChance: a hit rolls a bonus type, returns both balls(表示) and actual(実質), and accumulates actual into actualBalls', () => {
   const state = { stRemaining: 3, reserveRemaining: 4, totalHits: 2, actualBalls: 9000 };
-  // draws: [0]=spinRushChance hit, [0.3]=rollRushHitType->'mid' (4500)
-  const { rushState, outcome, hitType, balls } =
+  // draws: [0]=spinRushChance hit, [0.3]=rollRushHitType->'mid' (4500表示/4200実質)
+  const { rushState, outcome, hitType, balls, actual } =
     withMockRandom([0, 0.3], () => logic.applyRushChance(state));
   assert.equal(outcome, 'hit');
   assert.equal(hitType, 'mid');
   assert.equal(balls, 4500);
-  assert.deepEqual(rushState, { stRemaining: 10, reserveRemaining: 4, totalHits: 3, actualBalls: 13500 });
+  assert.equal(actual, 4200);
+  assert.deepEqual(rushState, { stRemaining: 10, reserveRemaining: 4, totalHits: 3, actualBalls: 13200 });
 });
 
-test('applyRushChance: a "none" hit still resets the cycle and counts as a hit, with 0 balls', () => {
+test('applyRushChance: a "none" hit still resets the cycle and counts as a hit, with 0 balls/actual', () => {
   const state = logic.createRushState();
-  // draws: [0]=spinRushChance hit, [0.95]=rollRushHitType->'none' (0 balls)
-  const { rushState, outcome, hitType, balls } =
+  // draws: [0]=spinRushChance hit, [0.95]=rollRushHitType->'none' (0 balls, 0 actual)
+  const { rushState, outcome, hitType, balls, actual } =
     withMockRandom([0, 0.95], () => logic.applyRushChance(state));
   assert.equal(outcome, 'hit');
   assert.equal(hitType, 'none');
   assert.equal(balls, 0);
+  assert.equal(actual, 0);
   assert.deepEqual(rushState, { stRemaining: 10, reserveRemaining: 4, totalHits: 1, actualBalls: 0 });
 });
 
