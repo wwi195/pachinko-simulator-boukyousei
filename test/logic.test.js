@@ -143,3 +143,14 @@ test('applyRushChance: a "none" hit still resets the cycle and counts as a hit, 
   assert.equal(balls, 0);
   assert.deepEqual(rushState, { stRemaining: 10, reserveRemaining: 4, totalHits: 1, actualBalls: 0 });
 });
+
+test('DAILY_SPIN_LIMIT is 2000 and BALL_TO_YEN is 4', () => {
+  assert.equal(logic.DAILY_SPIN_LIMIT, 2000);
+  assert.equal(logic.BALL_TO_YEN, 4);
+});
+
+test('ballsToYen floors fractional balls then converts at 4 yen/ball', () => {
+  assert.equal(logic.ballsToYen(1000), 4000);
+  assert.equal(logic.ballsToYen(250.7), 1000);
+  assert.equal(logic.ballsToYen(0), 0);
+});

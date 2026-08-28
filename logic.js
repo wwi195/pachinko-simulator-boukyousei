@@ -119,6 +119,15 @@ function applyRushChance(rushState) {
   return { rushState: newState, outcome: 'miss' };
 }
 
+// ---- 日またぎ ----
+
+const DAILY_SPIN_LIMIT = 2000;
+const BALL_TO_YEN = 4;
+
+function ballsToYen(balls) {
+  return Math.floor(balls) * BALL_TO_YEN;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     SPIN_RATE_OPTIONS,
@@ -142,5 +151,8 @@ if (typeof module !== 'undefined' && module.exports) {
     rollRushHitType,
     createRushState,
     applyRushChance,
+    DAILY_SPIN_LIMIT,
+    BALL_TO_YEN,
+    ballsToYen,
   };
 }
