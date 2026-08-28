@@ -57,3 +57,82 @@ test('rollChargeUpgrade is true under CHARGE_UPGRADE_RATE, false otherwise', () 
   assert.equal(withMockRandom([0], () => logic.rollChargeUpgrade()), true);
   assert.equal(withMockRandom([0.9], () => logic.rollChargeUpgrade()), false);
 });
+
+test('P_RUSH_CHANCE is 1/10.7, RUSH_ST_COUNT is 10, RUSH_RESERVE_COUNT is 4', () => {
+  assert.equal(logic.P_RUSH_CHANCE, 1 / 10.7);
+  assert.equal(logic.RUSH_ST_COUNT, 10);
+  assert.equal(logic.RUSH_RESERVE_COUNT, 4);
+});
+
+test('spinRushChance returns hit when the draw beats P_RUSH_CHANCE, miss otherwise', () => {
+  assert.equal(withMockRandom([0], () => logic.spinRushChance()), 'hit');
+  assert.equal(withMockRandom([0.5], () => logic.spinRushChance()), 'miss');
+});
+
+test('RUSH_HIT_TYPES lists the 4 outcomes with correct weight/balls', () => {
+  assert.deepEqual(logic.RUSH_HIT_TYPE_ORDER, ['big', 'mid', 'small', 'none']);
+  assert.deepEqual(logic.RUSH_HIT_TYPES.big,   { weight: 0.10, balls: 6000 });
+  assert.deepEqual(logic.RUSH_HIT_TYPES.mid,   { weight: 0.40, balls: 4500 });
+  assert.deepEqual(logic.RUSH_HIT_TYPES.small, { weight: 0.30, balls: 1500 });
+  assert.deepEqual(logic.RUSH_HIT_TYPES.none,  { weight: 0.20, balls: 0 });
+});
+
+test('rollRushHitType picks the type whose cumulative range contains the draw', () => {
+  // cumulative: big<0.10, mid<0.50, small<0.80, none<1.0
+  assert.equal(withMockRandom([0],    () => logic.rollRushHitType()), 'big');
+  assert.equal(withMockRandom([0.3],  () => logic.rollRushHitType()), 'mid');
+  assert.equal(withMockRandom([0.7],  () => logic.rollRushHitType()), 'small');
+  assert.equal(withMockRandom([0.95], () => logic.rollRushHitType()), 'none');
+});
+
+test('createRushState starts with a fresh 10/4 cycle and zeroed counters', () => {
+  assert.deepEqual(logic.createRushState(), {
+    stRemaining: 10,
+    reserveRemaining: 4,
+    totalHits: 0,
+    actualBalls: 0,
+  });
+});
+
+test('applyRushChance: a miss with ST remaining decrements stRemaining only', () => {
+  const state = logic.createRushState();
+  const { rushState, outcome } = withMockRandom([0.5], () => logic.applyRushChance(state));
+  assert.equal(outcome, 'miss');
+  assert.deepEqual(rushState, { stRemaining: 9, reserveRemaining: 4, totalHits: 0, actualBalls: 0 });
+});
+
+test('applyRushChance: once ST is exhausted, a miss decrements reserveRemaining instead', () => {
+  const state = { stRemaining: 0, reserveRemaining: 4, totalHits: 0, actualBalls: 0 };
+  const { rushState, outcome } = withMockRandom([0.5], () => logic.applyRushChance(state));
+  assert.equal(outcome, 'miss');
+  assert.deepEqual(rushState, { stRemaining: 0, reserveRemaining: 3, totalHits: 0, actualBalls: 0 });
+});
+
+test('applyRushChance: a miss on the very last reserved chance ends the RUSH', () => {
+  const state = { stRemaining: 0, reserveRemaining: 1, totalHits: 0, actualBalls: 0 };
+  const { rushState, outcome } = withMockRandom([0.5], () => logic.applyRushChance(state));
+  assert.equal(outcome, 'rush_end');
+  assert.equal(rushState.reserveRemaining, 0);
+});
+
+test('applyRushChance: a hit rolls a bonus type, adds balls, and resets the cycle to fresh 10/4', () => {
+  const state = { stRemaining: 3, reserveRemaining: 4, totalHits: 2, actualBalls: 9000 };
+  // draws: [0]=spinRushChance hit, [0.3]=rollRushHitType->'mid' (4500)
+  const { rushState, outcome, hitType, balls } =
+    withMockRandom([0, 0.3], () => logic.applyRushChance(state));
+  assert.equal(outcome, 'hit');
+  assert.equal(hitType, 'mid');
+  assert.equal(balls, 4500);
+  assert.deepEqual(rushState, { stRemaining: 10, reserveRemaining: 4, totalHits: 3, actualBalls: 13500 });
+});
+
+test('applyRushChance: a "none" hit still resets the cycle and counts as a hit, with 0 balls', () => {
+  const state = logic.createRushState();
+  // draws: [0]=spinRushChance hit, [0.95]=rollRushHitType->'none' (0 balls)
+  const { rushState, outcome, hitType, balls } =
+    withMockRandom([0, 0.95], () => logic.applyRushChance(state));
+  assert.equal(outcome, 'hit');
+  assert.equal(hitType, 'none');
+  assert.equal(balls, 0);
+  assert.deepEqual(rushState, { stRemaining: 10, reserveRemaining: 4, totalHits: 1, actualBalls: 0 });
+});

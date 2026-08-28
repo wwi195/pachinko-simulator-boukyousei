@@ -46,6 +46,76 @@ function rollChargeUpgrade() {
   return Math.random() < CHARGE_UPGRADE_RATE;
 }
 
+// ---- 拳王RUSH ----
+// 1サイクル = 電サポ10回転 + 残保留4個 = 実質14回のチャンス。
+// 最低1回当たればサイクルはヒットしてST/残保留が10/4にフルリセットされ継続する。
+// 14回すべて外れたらRUSH終了。
+
+const P_RUSH_CHANCE = 1 / 10.7;
+const RUSH_ST_COUNT = 10;
+const RUSH_RESERVE_COUNT = 4;
+
+function spinRushChance() {
+  return Math.random() < P_RUSH_CHANCE ? 'hit' : 'miss';
+}
+
+const RUSH_HIT_TYPES = {
+  big:   { weight: 0.10, balls: 6000 },
+  mid:   { weight: 0.40, balls: 4500 },
+  small: { weight: 0.30, balls: 1500 },
+  none:  { weight: 0.20, balls: 0 },
+};
+const RUSH_HIT_TYPE_ORDER = ['big', 'mid', 'small', 'none'];
+
+function rollRushHitType() {
+  const r = Math.random();
+  let cumulative = 0;
+  for (const key of RUSH_HIT_TYPE_ORDER) {
+    cumulative += RUSH_HIT_TYPES[key].weight;
+    if (r < cumulative) return key;
+  }
+  return RUSH_HIT_TYPE_ORDER[RUSH_HIT_TYPE_ORDER.length - 1];
+}
+
+function createRushState() {
+  return {
+    stRemaining: RUSH_ST_COUNT,
+    reserveRemaining: RUSH_RESERVE_COUNT,
+    totalHits: 0,
+    actualBalls: 0,
+  };
+}
+
+function applyRushChance(rushState) {
+  const result = spinRushChance();
+
+  if (result === 'hit') {
+    const hitType = rollRushHitType();
+    const balls = RUSH_HIT_TYPES[hitType].balls;
+    const newState = {
+      stRemaining: RUSH_ST_COUNT,
+      reserveRemaining: RUSH_RESERVE_COUNT,
+      totalHits: rushState.totalHits + 1,
+      actualBalls: rushState.actualBalls + balls,
+    };
+    return { rushState: newState, outcome: 'hit', hitType, balls };
+  }
+
+  if (rushState.stRemaining > 0) {
+    const newState = { ...rushState, stRemaining: rushState.stRemaining - 1 };
+    if (newState.stRemaining === 0 && newState.reserveRemaining === 0) {
+      return { rushState: newState, outcome: 'rush_end' };
+    }
+    return { rushState: newState, outcome: 'miss' };
+  }
+
+  const newState = { ...rushState, reserveRemaining: rushState.reserveRemaining - 1 };
+  if (newState.reserveRemaining === 0) {
+    return { rushState: newState, outcome: 'rush_end' };
+  }
+  return { rushState: newState, outcome: 'miss' };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     SPIN_RATE_OPTIONS,
@@ -60,5 +130,14 @@ if (typeof module !== 'undefined' && module.exports) {
     ZUGAR_TYPE_ORDER,
     rollZugarType,
     rollChargeUpgrade,
+    P_RUSH_CHANCE,
+    RUSH_ST_COUNT,
+    RUSH_RESERVE_COUNT,
+    spinRushChance,
+    RUSH_HIT_TYPES,
+    RUSH_HIT_TYPE_ORDER,
+    rollRushHitType,
+    createRushState,
+    applyRushChance,
   };
 }
