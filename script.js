@@ -175,6 +175,8 @@ function handleRushSpin10() {
   setState('rush_idle');
 }
 
+// applyRushChance（logic.js）は最大 RUSH_ST_COUNT+RUSH_RESERVE_COUNT 回の外れで
+// 必ずhitかrush_endに解決するため、この無限ループは有限回で終了する。
 function handleRushSkip() {
   for (;;) {
     if (runRushSpin({ silent: true })) return;
