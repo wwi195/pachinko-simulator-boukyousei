@@ -248,3 +248,98 @@ function resetGame() {
   game.log             = [];
   render();
 }
+
+// ---- 状態セット & レンダリング ----
+
+function setState(state) {
+  game.state = state;
+  render();
+}
+
+function render() {
+  renderHeader();
+  renderModeBadge();
+  renderMainScreen();
+  renderRushStats();
+}
+
+function renderHeader() {
+  const mochiInt = Math.floor(game.mochiDama);
+  document.getElementById('mochi-dama').textContent   = mochiInt.toLocaleString();
+  document.getElementById('toushi-value').textContent = game.toushi.toLocaleString();
+
+  const shuushi   = game.bankedYen + mochiInt * 4 - game.toushi;
+  const shuushiEl = document.getElementById('shuushi-value');
+  shuushiEl.textContent = (shuushi >= 0 ? '+' : '') + shuushi.toLocaleString();
+  shuushiEl.className   = 'money-value ' + (shuushi >= 0 ? 'green' : 'red');
+
+  document.getElementById('current-spins').textContent    = game.currentSpins.toLocaleString();
+  document.getElementById('total-spins-disp').textContent = game.totalSpins.toLocaleString();
+  document.getElementById('day-badge').textContent        = `${game.dayNumber}日目`;
+  document.getElementById('fee-block').textContent        = `${game.spinRate}回転/千円`;
+
+  const rushCountEl = document.getElementById('rush-count');
+  rushCountEl.textContent = game.mode === 'rush'
+    ? `${game.rush.stRemaining}／${game.rush.reserveRemaining}`
+    : '－';
+
+  const zugarTotal  = game.zugarCounts.rushBig + game.zugarCounts.rushSmall + game.zugarCounts.normal;
+  const chargeTotal = game.chargeCounts.upgraded + game.chargeCounts.plain;
+  const normalFirstHit = zugarTotal + chargeTotal;
+  document.getElementById('normal-first-hit').textContent  = normalFirstHit + '回';
+  document.getElementById('normal-first-prob').textContent = normalFirstHit > 0 && game.totalSpins > 0
+    ? '1/' + Math.round(game.totalSpins / normalFirstHit).toLocaleString()
+    : '1/―';
+
+  const rushRate = normalFirstHit > 0
+    ? Math.round(game.rushEntryCount / normalFirstHit * 100)
+    : 0;
+  document.getElementById('rush-entry-info').textContent =
+    `(拳王RUSH突入${game.rushEntryCount}回・${rushRate}%)`;
+
+  const totalHitCount = normalFirstHit + game.totalRushHits;
+  document.getElementById('total-hit-count').textContent = totalHitCount + '回';
+}
+
+function renderModeBadge() {
+  const el = document.getElementById('mode-badge');
+  if (game.mode === 'rush') {
+    el.textContent = '拳王RUSH中';
+    el.className = 'rush';
+  } else {
+    el.textContent = '通常時';
+    el.className = '';
+  }
+}
+
+function renderMainScreen() {
+  document.getElementById('main-screen').innerHTML = buildScreen(game.state);
+}
+
+function renderRushStats() {
+  const a = game.allRushStats;
+  const h = game.rushHitCounts;
+  document.getElementById('rs-hits').textContent  = game.totalRushHits + '回';
+  document.getElementById('rs-spins').textContent = a.rushTotalSpins + '回';
+  document.getElementById('rs-big').textContent   = h.big + '回';
+  document.getElementById('rs-mid').textContent   = h.mid + '回';
+  document.getElementById('rs-small').textContent = h.small + '回';
+  document.getElementById('rs-none').textContent  = h.none + '回';
+}
+
+function renderLog() {
+  const el = document.getElementById('log-list');
+  el.innerHTML = game.log.map(item =>
+    `<div class="log-item ${item.type}">${item.text}</div>`
+  ).join('');
+}
+
+function spinRateOptionsHtml() {
+  return SPIN_RATE_OPTIONS.map(rate =>
+    `<option value="${rate}" ${rate === game.spinRate ? 'selected' : ''}>${rate}回転</option>`
+  ).join('');
+}
+
+function tenThousandYenSpins() {
+  return game.spinRate * 10;
+}
