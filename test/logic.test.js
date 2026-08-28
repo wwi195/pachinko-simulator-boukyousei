@@ -101,6 +101,13 @@ test('applyRushChance: a miss with ST remaining decrements stRemaining only', ()
   assert.deepEqual(rushState, { stRemaining: 9, reserveRemaining: 4, totalHits: 0, actualBalls: 0 });
 });
 
+test('applyRushChance: a miss on the last regular spin (ST 1->0) is still just a miss while reserve remains', () => {
+  const state = { stRemaining: 1, reserveRemaining: 4, totalHits: 0, actualBalls: 0 };
+  const { rushState, outcome } = withMockRandom([0.5], () => logic.applyRushChance(state));
+  assert.equal(outcome, 'miss');
+  assert.deepEqual(rushState, { stRemaining: 0, reserveRemaining: 4, totalHits: 0, actualBalls: 0 });
+});
+
 test('applyRushChance: once ST is exhausted, a miss decrements reserveRemaining instead', () => {
   const state = { stRemaining: 0, reserveRemaining: 4, totalHits: 0, actualBalls: 0 };
   const { rushState, outcome } = withMockRandom([0.5], () => logic.applyRushChance(state));

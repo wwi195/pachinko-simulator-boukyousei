@@ -103,6 +103,9 @@ function applyRushChance(rushState) {
 
   if (rushState.stRemaining > 0) {
     const newState = { ...rushState, stRemaining: rushState.stRemaining - 1 };
+    // reserveRemaining は必ずstRemaining===0になってから消化されるため、
+    // ここでreserveRemainingが同時に0になることは通常のプレイでは起こらない
+    // （createRushState()からの遷移では常に成立する不変条件）。防御的な分岐として残す。
     if (newState.stRemaining === 0 && newState.reserveRemaining === 0) {
       return { rushState: newState, outcome: 'rush_end' };
     }
