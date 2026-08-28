@@ -354,7 +354,7 @@ function buildScreen(state) {
     case 'normal_idle':
       return `<div class="screen">
         <button class="btn-start" onclick="handleStart()">START</button>
-        <p class="prob-hint">図柄ぞろい 1/${(1 / P_ZUGAR).toFixed(1)}　チャージ 1/${(1 / P_CHARGE).toFixed(1)}</p>
+        <p class="prob-hint">初当たり確率 1/${(1 / P_TOTAL_HIT).toFixed(1)}（図柄揃い＋チャージ昇格）</p>
         <div class="spin-rate-block">
           <span class="spin-rate-label">1000円あたりの回転数</span>
           <select class="spin-rate-select" onchange="handleSpinRateChange(this.value)">
