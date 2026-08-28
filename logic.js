@@ -10,6 +10,9 @@ function calcSpinCost(spinRate) {
 // ---- 通常時: 図柄揃い・チャージ ----
 // 導出過程は docs/superpowers/specs/2026-08-28-boukyousei-spec-design.md を参照。
 
+// 実機公表値そのもの（表示用の参考値）。図柄揃い+チャージ昇格を含む「初当たり」
+// 全体の確率で、P_ZUGAR + P_CHARGE（チャージは昇格なしも含む単発発生率）とは
+// 一致しない。スピン判定には使わない。
 const P_TOTAL_HIT = 1 / 399.8;
 const P_CHARGE = 1 / 2723.4;
 const P_ZUGAR = 0.96 / 399.8;
