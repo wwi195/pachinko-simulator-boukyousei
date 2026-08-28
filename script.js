@@ -137,17 +137,14 @@ function backToNormal() {
 // ---- 拳王RUSH中ハンドラ ----
 
 // 1チャンス消化。画面遷移が起きたら true を返す
-function runRushSpin(opts = {}) {
+// 1チャンス消化。ヒット/RUSH終了など画面遷移が起きたら true を返す。
+// 外れは無演出（ST/残保留が減るだけ）なので画面遷移させず false を返す。
+function runRushSpin() {
   game.allRushStats.rushTotalSpins++;
   const { rushState, outcome, hitType, balls } = applyRushChance(game.rush);
   game.rush = rushState;
 
   if (outcome === 'miss') {
-    if (!opts.silent) {
-      addLog(`ST残り${rushState.stRemaining}回・残保留${rushState.reserveRemaining}個`);
-      setState('rush_miss');
-      return true;
-    }
     return false;
   }
 
@@ -168,12 +165,14 @@ function runRushSpin(opts = {}) {
 }
 
 function handleRushSpin() {
-  runRushSpin();
+  if (!runRushSpin()) {
+    setState('rush_idle'); // 外れ：ST/残保留の表示だけ更新して継続
+  }
 }
 
 function handleRushSpin10() {
   for (let i = 0; i < 10; i++) {
-    if (runRushSpin({ silent: true })) return;
+    if (runRushSpin()) return;
   }
   setState('rush_idle');
 }
@@ -182,15 +181,11 @@ function handleRushSpin10() {
 // 必ずhitかrush_endに解決するため、この無限ループは有限回で終了する。
 function handleRushSkip() {
   for (;;) {
-    if (runRushSpin({ silent: true })) return;
+    if (runRushSpin()) return;
   }
 }
 
 function handleRushHitContinue() {
-  setState('rush_idle');
-}
-
-function handleRushMissContinue() {
   setState('rush_idle');
 }
 
@@ -425,15 +420,6 @@ function buildScreen(state) {
         <button class="btn-action" onclick="handleRushHitContinue()">▶ RUSH継続へ</button>
       </div>`;
     }
-
-    case 'rush_miss':
-      return `<div class="screen">
-        <p class="result-main lose">はずれ</p>
-        <p style="color:#ff9900; font-size:15px; margin-top:4px;">
-          ST残り${game.rush.stRemaining}回・残保留${game.rush.reserveRemaining}個
-        </p>
-        <button class="btn-sub" onclick="handleRushMissContinue()" style="margin-top:12px;">続ける</button>
-      </div>`;
 
     case 'rush_result': {
       const h = game.rushSessionHitCounts;
