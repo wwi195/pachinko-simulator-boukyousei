@@ -17,6 +17,7 @@ const game = {
   rushEntryCount: 0,
   totalRushHits: 0,
   rushHitCounts: { big: 0, mid: 0, small: 0, none: 0 },
+  rushSessionHitCounts: { big: 0, mid: 0, small: 0, none: 0 },
   allRushStats: { rushTotalSpins: 0 },
   rush: null,
   pending: {},
@@ -118,6 +119,7 @@ function autoSpin(count) {
 function handleHitContinue() {
   if (game.pending.entersRush) {
     game.rush = createRushState();
+    game.rushSessionHitCounts = { big: 0, mid: 0, small: 0, none: 0 };
     game.mode = 'rush';
     game.rushEntryCount++;
     addLog('拳王RUSH突入！', 'rush');
@@ -157,6 +159,7 @@ function runRushSpin(opts = {}) {
 
   game.totalRushHits++;
   game.rushHitCounts[hitType]++;
+  game.rushSessionHitCounts[hitType]++;
   addBalls(balls);
   game.pending = { hitType, balls };
   addLog(hitType === 'none' ? '当選（出玉なし）継続！' : `${balls}個！ ＋${balls}球`, 'rush');
@@ -241,6 +244,7 @@ function resetGame() {
   game.rushEntryCount  = 0;
   game.totalRushHits   = 0;
   game.rushHitCounts   = { big: 0, mid: 0, small: 0, none: 0 };
+  game.rushSessionHitCounts = { big: 0, mid: 0, small: 0, none: 0 };
   game.allRushStats    = { rushTotalSpins: 0 };
   game.rush            = null;
   game.pending         = {};
@@ -432,7 +436,7 @@ function buildScreen(state) {
       </div>`;
 
     case 'rush_result': {
-      const h = game.rushHitCounts;
+      const h = game.rushSessionHitCounts;
       const lines = [];
       if (h.big   > 0) lines.push(`<div class="result-row"><span class="rr-label">6000個</span><span class="rr-val">×${h.big}回</span></div>`);
       if (h.mid   > 0) lines.push(`<div class="result-row"><span class="rr-label">4500個</span><span class="rr-val">×${h.mid}回</span></div>`);
