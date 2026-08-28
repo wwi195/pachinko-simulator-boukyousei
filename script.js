@@ -131,3 +131,118 @@ function backToNormal() {
   game.mode = 'normal';
   setState('normal_idle');
 }
+
+// ---- 拳王RUSH中ハンドラ ----
+
+// 1チャンス消化。画面遷移が起きたら true を返す
+function runRushSpin(opts = {}) {
+  game.allRushStats.rushTotalSpins++;
+  const { rushState, outcome, hitType, balls } = applyRushChance(game.rush);
+  game.rush = rushState;
+
+  if (outcome === 'miss') {
+    if (!opts.silent) {
+      addLog(`ST残り${rushState.stRemaining}回・残保留${rushState.reserveRemaining}個`);
+      setState('rush_miss');
+      return true;
+    }
+    return false;
+  }
+
+  if (outcome === 'rush_end') {
+    addLog('拳王RUSH終了 → リザルトへ');
+    setState('rush_result');
+    return true;
+  }
+
+  game.totalRushHits++;
+  game.rushHitCounts[hitType]++;
+  addBalls(balls);
+  game.pending = { hitType, balls };
+  addLog(hitType === 'none' ? '当選（出玉なし）継続！' : `${balls}個！ ＋${balls}球`, 'rush');
+  setState('rush_hit_result');
+  return true;
+}
+
+function handleRushSpin() {
+  runRushSpin();
+}
+
+function handleRushSpin10() {
+  for (let i = 0; i < 10; i++) {
+    if (runRushSpin({ silent: true })) return;
+  }
+  setState('rush_idle');
+}
+
+function handleRushSkip() {
+  for (;;) {
+    if (runRushSpin({ silent: true })) return;
+  }
+}
+
+function handleRushHitContinue() {
+  setState('rush_idle');
+}
+
+function handleRushMissContinue() {
+  setState('rush_idle');
+}
+
+function handleRushResultEnd() {
+  addLog('拳王RUSH終了 → 通常時へ');
+  game.mode = 'normal';
+  game.rush = null;
+  setState('normal_idle');
+}
+
+// ---- 営業終了・日またぎ・退店 ----
+
+function continueNextDay() {
+  game.bankedYen += ballsToYen(game.mochiDama);
+  game.mochiDama = 0;
+  game.dayNumber++;
+  game.todaySpins = 0;
+  game.eigyoAlertShown = false;
+  game.mode = 'normal';
+  game.rush = null;
+  addLog(`${game.dayNumber}日目 開始`, 'add');
+  setState('normal_idle');
+}
+
+function handleEigyoHai() {
+  continueNextDay();
+}
+
+function handleEigyoIie() {
+  setState('taiten_result');
+}
+
+function handleTaiten() {
+  setState('taiten_result');
+}
+
+function resetGame() {
+  game.state           = 'normal_idle';
+  game.mode            = 'normal';
+  game.spinRate        = DEFAULT_SPIN_RATE;
+  game.mochiDama       = 0;
+  game.toushi          = 0;
+  game.bankedYen       = 0;
+  game.dayNumber       = 1;
+  game.totalSpins      = 0;
+  game.todaySpins      = 0;
+  game.currentSpins    = 0;
+  game.lastHitSpins    = 0;
+  game.zugarCounts     = { rushBig: 0, rushSmall: 0, normal: 0 };
+  game.chargeCounts    = { upgraded: 0, plain: 0 };
+  game.rushEntryCount  = 0;
+  game.totalRushHits   = 0;
+  game.rushHitCounts   = { big: 0, mid: 0, small: 0, none: 0 };
+  game.allRushStats    = { rushTotalSpins: 0 };
+  game.rush            = null;
+  game.pending         = {};
+  game.eigyoAlertShown = false;
+  game.log             = [];
+  render();
+}
