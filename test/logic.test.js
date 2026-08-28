@@ -153,6 +153,19 @@ test('applyRushChance: a "none" hit still resets the cycle and counts as a hit, 
   assert.deepEqual(rushState, { stRemaining: 10, reserveRemaining: 4, totalHits: 1, actualBalls: 0 });
 });
 
+test('applyRushChance: a hit during the reserve phase (stRemaining===0) is always the "small" (10R/1500) type, regardless of the hit-type draw', () => {
+  const state = { stRemaining: 0, reserveRemaining: 4, totalHits: 0, actualBalls: 0 };
+  // draw [0] alone must resolve the whole call: only spinRushChance is rolled here,
+  // rollRushHitType must NOT be consulted for a reserve-phase hit.
+  const { rushState, outcome, hitType, balls, actual } =
+    withMockRandom([0], () => logic.applyRushChance(state));
+  assert.equal(outcome, 'hit');
+  assert.equal(hitType, 'small');
+  assert.equal(balls, 1500);
+  assert.equal(actual, 1400);
+  assert.deepEqual(rushState, { stRemaining: 10, reserveRemaining: 4, totalHits: 1, actualBalls: 1400 });
+});
+
 test('DAILY_SPIN_LIMIT is 2000 and BALL_TO_YEN is 4', () => {
   assert.equal(logic.DAILY_SPIN_LIMIT, 2000);
   assert.equal(logic.BALL_TO_YEN, 4);

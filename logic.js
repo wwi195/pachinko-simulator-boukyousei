@@ -98,7 +98,9 @@ function applyRushChance(rushState) {
   const result = spinRushChance();
 
   if (result === 'hit') {
-    const hitType = rollRushHitType();
+    // 保留（残保留4個）消化中の当たりは常に10R/1500個（'small'）に固定。
+    // ST消化中（stRemaining>0）の当たりのみRUSH_HIT_TYPESの通常抽選を行う。
+    const hitType = rushState.stRemaining > 0 ? rollRushHitType() : 'small';
     const balls = RUSH_HIT_TYPES[hitType].balls;
     const actual = RUSH_HIT_TYPES[hitType].actual;
     const newState = {
