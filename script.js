@@ -343,3 +343,189 @@ function spinRateOptionsHtml() {
 function tenThousandYenSpins() {
   return game.spinRate * 10;
 }
+
+function buildScreen(state) {
+  switch (state) {
+
+    case 'normal_idle':
+      return `<div class="screen">
+        <button class="btn-start" onclick="handleStart()">START</button>
+        <p class="prob-hint">図柄ぞろい 1/${(1 / P_ZUGAR).toFixed(1)}　チャージ 1/${(1 / P_CHARGE).toFixed(1)}</p>
+        <div class="spin-rate-block">
+          <span class="spin-rate-label">1000円あたりの回転数</span>
+          <select class="spin-rate-select" onchange="handleSpinRateChange(this.value)">
+            ${spinRateOptionsHtml()}
+          </select>
+        </div>
+        <div class="auto-spin-btns">
+          <div class="auto-spin-wrap">
+            <button class="btn-auto" onclick="autoSpin(${tenThousandYenSpins()})">${tenThousandYenSpins()}回転回す</button>
+            <p class="spin-cost-hint">約10,000円消費</p>
+          </div>
+        </div>
+        <button class="btn-taiten" onclick="handleTaiten()">退店する</button>
+      </div>`;
+
+    case 'lose_result':
+      return `<div class="screen">
+        <p class="result-main lose">はずれ</p>
+        <button class="btn-sub" onclick="backToNormal()" style="margin-top:8px;">続ける</button>
+      </div>`;
+
+    case 'hit_result': {
+      const p = game.pending;
+      if (p.source === 'zugar') {
+        const titleMap = { rushBig: '10R×3', rushSmall: '10R', normal: '10R' };
+        return `<div class="screen">
+          <p class="result-main win">図柄揃い！</p>
+          <div class="vibun-box ${p.entersRush ? 'rush-box' : 'normal-box'}">
+            <p class="bonus-main ${p.entersRush ? 'premium' : 'standard'}">${titleMap[p.typeKey]}</p>
+            <p class="bonus-sub">＋${p.balls.toLocaleString()}球獲得</p>
+            ${p.entersRush ? '<p class="rush-announce">🔥 拳王RUSH突入！</p>' : ''}
+          </div>
+          <button class="btn-action" onclick="handleHitContinue()">▶ ${p.entersRush ? 'RUSHへ' : '通常へ'}</button>
+        </div>`;
+      }
+      return `<div class="screen">
+        <p class="result-main charge">チャージ！</p>
+        <div class="vibun-box charge-box">
+          <p class="bonus-main charge">${p.upgraded ? '2R+10R昇格' : 'チャージ'}</p>
+          <p class="bonus-sub">＋${p.balls.toLocaleString()}球獲得</p>
+          ${p.upgraded ? '<p class="rush-announce">🔥 拳王RUSH突入！</p>' : ''}
+        </div>
+        <button class="btn-action" onclick="handleHitContinue()">▶ ${p.entersRush ? 'RUSHへ' : '通常へ'}</button>
+      </div>`;
+    }
+
+    case 'rush_idle':
+      return `<div class="screen">
+        <p class="rush-title">拳王RUSH</p>
+        <p class="rush-sub">ST残り <span>${game.rush.stRemaining}</span> 回／保留<span>${game.rush.reserveRemaining}</span></p>
+        <div class="rush-spin-btns">
+          <button class="btn-rush-spin" onclick="handleRushSpin()">1回転</button>
+          <button class="btn-rush-spin" onclick="handleRushSpin10()">10回転</button>
+          <button class="btn-rush-spin skip" onclick="handleRushSkip()">スキップ</button>
+        </div>
+        <p class="prob-hint">当選確率 1/10.7</p>
+        <button class="btn-taiten" onclick="handleTaiten()">退店する</button>
+      </div>`;
+
+    case 'rush_hit_result': {
+      const p = game.pending;
+      const labelMap = { big: '6000個', mid: '4500個', small: '1500個', none: '出玉なし' };
+      return `<div class="screen">
+        <div class="vibun-box rush-box">
+          <p class="bonus-main ${p.hitType === 'none' ? 'none' : 'standard'}">${labelMap[p.hitType]}</p>
+          <p class="bonus-sub">＋${p.balls.toLocaleString()}球獲得</p>
+        </div>
+        <button class="btn-action" onclick="handleRushHitContinue()">▶ RUSH継続へ</button>
+      </div>`;
+    }
+
+    case 'rush_miss':
+      return `<div class="screen">
+        <p class="result-main lose">はずれ</p>
+        <p style="color:#ff9900; font-size:15px; margin-top:4px;">
+          ST残り${game.rush.stRemaining}回・残保留${game.rush.reserveRemaining}個
+        </p>
+        <button class="btn-sub" onclick="handleRushMissContinue()" style="margin-top:12px;">続ける</button>
+      </div>`;
+
+    case 'rush_result': {
+      const h = game.rushHitCounts;
+      const lines = [];
+      if (h.big   > 0) lines.push(`<div class="result-row"><span class="rr-label">6000個</span><span class="rr-val">×${h.big}回</span></div>`);
+      if (h.mid   > 0) lines.push(`<div class="result-row"><span class="rr-label">4500個</span><span class="rr-val">×${h.mid}回</span></div>`);
+      if (h.small > 0) lines.push(`<div class="result-row"><span class="rr-label">1500個</span><span class="rr-val">×${h.small}回</span></div>`);
+      if (h.none  > 0) lines.push(`<div class="result-row"><span class="rr-label">出玉なし</span><span class="rr-val">×${h.none}回</span></div>`);
+      if (lines.length === 0) lines.push(`<p style="color:#555; font-size:13px;">大当たりなし</p>`);
+      return `<div class="screen">
+        <p class="rush-result-title">拳王RUSH リザルト</p>
+        <div class="rush-result-box">
+          <div class="result-row highlight">
+            <span class="rr-label">当たり回数</span>
+            <span class="rr-val gold">${game.rush.totalHits}回</span>
+          </div>
+          <div class="result-row">
+            <span class="rr-label">獲得出玉</span>
+            <span class="rr-val gold">${game.rush.actualBalls.toLocaleString()}球</span>
+          </div>
+          <hr class="result-hr">
+          <p class="rr-section">ボーナス内訳</p>
+          ${lines.join('')}
+        </div>
+        <button class="btn-action" onclick="handleRushResultEnd()" style="margin-top:16px;">▶ 通常へ戻る</button>
+      </div>`;
+    }
+
+    case 'eigyo_alert':
+      return `<div class="screen">
+        <p style="font-size:22px; font-weight:bold; color:#ff5b4d; text-align:center; line-height:1.6;">
+          本日の営業時間が終了しました
+        </p>
+        <p style="font-size:16px; color:#ccc; text-align:center;">翌日も打ちますか？</p>
+        <div style="display:flex; gap:16px; margin-top:8px;">
+          <button class="btn-action" style="flex:1;" onclick="handleEigyoHai()">はい</button>
+          <button class="btn-action secondary" style="flex:1;" onclick="handleEigyoIie()">いいえ</button>
+        </div>
+      </div>`;
+
+    case 'taiten_result': {
+      const mochi    = Math.floor(game.mochiDama);
+      const mochiYen = mochi * 4;
+      const shuushi  = game.bankedYen + mochiYen - game.toushi;
+      const shuushiColor = shuushi >= 0 ? '#44cc88' : '#cc6666';
+      const shuushiSign  = shuushi >= 0 ? '＋' : '';
+      const zugarTotal  = game.zugarCounts.rushBig + game.zugarCounts.rushSmall + game.zugarCounts.normal;
+      const chargeTotal = game.chargeCounts.upgraded + game.chargeCounts.plain;
+      return `<div class="screen">
+        <p style="font-size:24px; font-weight:bold; color:#aaa;">退店します（${game.dayNumber}日目）</p>
+        <div class="rush-result-box" style="max-width:320px;">
+          <p class="rr-section" style="margin-bottom:8px;">収支発表</p>
+          <div class="result-row">
+            <span class="rr-label">総回転数</span>
+            <span class="rr-val">${game.totalSpins.toLocaleString()}回</span>
+          </div>
+          <div class="result-row">
+            <span class="rr-label">投資金額</span>
+            <span class="rr-val" style="color:#cc6666;">${game.toushi.toLocaleString()}円</span>
+          </div>
+          <div class="result-row">
+            <span class="rr-label">持ち球換算</span>
+            <span class="rr-val">${mochiYen.toLocaleString()}円</span>
+          </div>
+          <div class="result-row">
+            <span class="rr-label">繰越換金額</span>
+            <span class="rr-val">${game.bankedYen.toLocaleString()}円</span>
+          </div>
+          <hr class="result-hr">
+          <div class="result-row highlight">
+            <span class="rr-label" style="font-weight:bold;">収支</span>
+            <span class="rr-val" style="color:${shuushiColor}; font-size:22px;">
+              ${shuushiSign}${shuushi.toLocaleString()}円
+            </span>
+          </div>
+          <hr class="result-hr">
+          <div class="result-row">
+            <span class="rr-label">図柄揃い</span>
+            <span class="rr-val">${zugarTotal}回</span>
+          </div>
+          <div class="result-row">
+            <span class="rr-label">チャージ</span>
+            <span class="rr-val">${chargeTotal}回</span>
+          </div>
+          <div class="result-row">
+            <span class="rr-label">拳王RUSH中当たり</span>
+            <span class="rr-val">${game.totalRushHits}回</span>
+          </div>
+        </div>
+        <button class="btn-action" onclick="resetGame()" style="margin-top:8px;">▶ 最初の画面に戻る</button>
+      </div>`;
+    }
+
+    default:
+      return `<div class="screen"><p>...</p></div>`;
+  }
+}
+
+render();
