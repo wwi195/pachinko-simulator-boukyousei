@@ -164,8 +164,9 @@ function runRushSpin() {
   game.rushHitCounts[hitType]++;
   game.rushSessionHitCounts[hitType]++;
   addBalls(actual); // 収支には実質獲得出玉を計上
-  // 保留消化中は必ずsmallになる（振り分けではなく確定）ため100%表示
-  const hitPercent = wasReservePhase ? 100 : Math.round(RUSH_HIT_TYPES[hitType].weight * 100);
+  const hitPercent = wasReservePhase
+    ? Math.round(RUSH_RESERVE_HIT_TYPES[hitType].weight * 100)
+    : Math.round(RUSH_HIT_TYPES[hitType].weight * 100);
   game.pending = { hitType, balls, spinsThisCycle: game.rushCycleSpins, hitPercent };
   addLog(hitType === 'none' ? 'STリセット！継続！' : `${balls}個！ ＋${balls}球`, 'rush'); // 表示出玉は今まで通り
   game.rushCycleSpins = 0;

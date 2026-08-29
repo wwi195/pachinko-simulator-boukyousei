@@ -157,17 +157,35 @@ test('applyRushChance: a "none" hit still resets the cycle and counts as a hit, 
   assert.deepEqual(rushState, { stRemaining: 10, reserveRemaining: 4, totalHits: 1, actualBalls: 0 });
 });
 
-test('applyRushChance: a hit during the reserve phase (stRemaining===0) is always the "small" (10R/1500) type, regardless of the hit-type draw', () => {
+test('RUSH_RESERVE_HIT_TYPES lists the 2 reserve-phase outcomes: small 80%, none 20%', () => {
+  assert.deepEqual(logic.RUSH_RESERVE_HIT_TYPE_ORDER, ['small', 'none']);
+  assert.deepEqual(logic.RUSH_RESERVE_HIT_TYPES.small, { weight: 0.80 });
+  assert.deepEqual(logic.RUSH_RESERVE_HIT_TYPES.none,  { weight: 0.20 });
+});
+
+test('rollReserveHitType picks small under 80%, none otherwise', () => {
+  assert.equal(withMockRandom([0],    () => logic.rollReserveHitType()), 'small');
+  assert.equal(withMockRandom([0.79], () => logic.rollReserveHitType()), 'small');
+  assert.equal(withMockRandom([0.8],  () => logic.rollReserveHitType()), 'none');
+  assert.equal(withMockRandom([0.99], () => logic.rollReserveHitType()), 'none');
+});
+
+test('applyRushChance: a hit during the reserve phase (stRemaining===0) uses the reserve-only small/none split, not RUSH_HIT_TYPES', () => {
   const state = { stRemaining: 0, reserveRemaining: 4, totalHits: 0, actualBalls: 0 };
-  // draw [0] alone must resolve the whole call: only spinRushChance is rolled here,
-  // rollRushHitType must NOT be consulted for a reserve-phase hit.
-  const { rushState, outcome, hitType, balls, actual } =
-    withMockRandom([0], () => logic.applyRushChance(state));
-  assert.equal(outcome, 'hit');
-  assert.equal(hitType, 'small');
-  assert.equal(balls, 1500);
-  assert.equal(actual, 1400);
-  assert.deepEqual(rushState, { stRemaining: 10, reserveRemaining: 4, totalHits: 1, actualBalls: 1400 });
+  // draws: [0]=spinRushChance hit, [0]=rollReserveHitType->'small' (not rollRushHitType, which would also pick 'big' at r=0 -- this proves the reserve-only roll is used)
+  const small = withMockRandom([0, 0], () => logic.applyRushChance(state));
+  assert.equal(small.outcome, 'hit');
+  assert.equal(small.hitType, 'small');
+  assert.equal(small.balls, 1500);
+  assert.equal(small.actual, 1400);
+  assert.deepEqual(small.rushState, { stRemaining: 10, reserveRemaining: 4, totalHits: 1, actualBalls: 1400 });
+
+  // draws: [0]=spinRushChance hit, [0.9]=rollReserveHitType->'none'
+  const none = withMockRandom([0, 0.9], () => logic.applyRushChance(state));
+  assert.equal(none.outcome, 'hit');
+  assert.equal(none.hitType, 'none');
+  assert.equal(none.balls, 0);
+  assert.equal(none.actual, 0);
 });
 
 test('DAILY_SPIN_LIMIT is 2000 and BALL_TO_YEN is 4', () => {

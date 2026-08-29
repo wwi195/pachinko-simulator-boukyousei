@@ -89,6 +89,24 @@ function rollRushHitType() {
   return RUSH_HIT_TYPE_ORDER[RUSH_HIT_TYPE_ORDER.length - 1];
 }
 
+// 保留（残保留4個）消化中の当たりはST消化中とは別の振り分け：
+// small(10R/1500)80%／none(STリセット)20%の2択のみ（big/midは出ない）。
+const RUSH_RESERVE_HIT_TYPES = {
+  small: { weight: 0.80 },
+  none:  { weight: 0.20 },
+};
+const RUSH_RESERVE_HIT_TYPE_ORDER = ['small', 'none'];
+
+function rollReserveHitType() {
+  const r = Math.random();
+  let cumulative = 0;
+  for (const key of RUSH_RESERVE_HIT_TYPE_ORDER) {
+    cumulative += RUSH_RESERVE_HIT_TYPES[key].weight;
+    if (r < cumulative) return key;
+  }
+  return RUSH_RESERVE_HIT_TYPE_ORDER[RUSH_RESERVE_HIT_TYPE_ORDER.length - 1];
+}
+
 function createRushState() {
   return {
     stRemaining: RUSH_ST_COUNT,
@@ -102,9 +120,9 @@ function applyRushChance(rushState) {
   const result = spinRushChance();
 
   if (result === 'hit') {
-    // 保留（残保留4個）消化中の当たりは常に10R/1500個（'small'）に固定。
-    // ST消化中（stRemaining>0）の当たりのみRUSH_HIT_TYPESの通常抽選を行う。
-    const hitType = rushState.stRemaining > 0 ? rollRushHitType() : 'small';
+    // ST消化中（stRemaining>0）はRUSH_HIT_TYPESの通常抽選（6000/4500/1500/STリセット）。
+    // 保留（残保留4個）消化中はsmall(1500)80%／none(STリセット)20%の2択のみ。
+    const hitType = rushState.stRemaining > 0 ? rollRushHitType() : rollReserveHitType();
     const balls = RUSH_HIT_TYPES[hitType].balls;
     const actual = RUSH_HIT_TYPES[hitType].actual;
     const newState = {
@@ -169,6 +187,9 @@ if (typeof module !== 'undefined' && module.exports) {
     RUSH_HIT_TYPES,
     RUSH_HIT_TYPE_ORDER,
     rollRushHitType,
+    RUSH_RESERVE_HIT_TYPES,
+    RUSH_RESERVE_HIT_TYPE_ORDER,
+    rollReserveHitType,
     createRushState,
     applyRushChance,
     DAILY_SPIN_LIMIT,
